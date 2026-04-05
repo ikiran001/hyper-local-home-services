@@ -23,17 +23,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn = db();
         $sql = 'SELECT id, name, phone, service_type, area FROM technicians WHERE phone = ? LIMIT 1';
         $stmt = $conn->prepare($sql);
-        $stmt->execute([$phone]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->bind_param('s', $phone);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
 
         if ($row) {
             $_SESSION['technician_id'] = (int) $row['id'];
             $_SESSION['technician_name'] = $row['name'];
-            $_SESSION['technician_service'] = $row['service_type'];
             header('Location: dashboard.php', true, 302);
             exit;
         }
-        $error = 'No technician account found for this number.';
+        $error = 'No technician found for this number.';
     }
 }
 ?>
@@ -42,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technician login — Home Services</title>
+  <title>Technician login — Dispatch</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>

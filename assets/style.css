@@ -1,5 +1,5 @@
 /**
- * Home Services Booking Platform — global styles
+ * Home Services Dispatch System — global styles
  * Mobile-first, primary #007bff
  */
 
@@ -508,4 +508,80 @@ hr.soft {
   border: none;
   border-top: 1px solid var(--border);
   margin: 1.5rem 0;
+}
+
+/* Dispatch — urgent + dashboard stats */
+.stats-grid-5 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 520px) {
+  .stats-grid-5 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 900px) {
+  .stats-grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.stat-earnings .num {
+  color: var(--success);
+}
+
+.row-urgent td {
+  background: #fff5f5;
+}
+
+.row-urgent td:first-child {
+  box-shadow: inset 4px 0 0 var(--danger);
+}
+
+.badge-urgent {
+  background: #f8d7da;
+  color: #721c24;
+  font-weight: 700;
+}
+
+.job-urgent {
+  border-color: #f5c6cb;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
+}
+
+.small {
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.action-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.action-form select {
+  max-width: 200px;
+  font-size: 0.85rem;
+}
+
+.inline-price {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.input-price {
+  width: 6.5rem;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }

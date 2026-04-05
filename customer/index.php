@@ -1,24 +1,25 @@
 <?php
 declare(strict_types=1);
-// Customer homepage — service cards and entry to booking flow
+
+require_once __DIR__ . '/../config/constants.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Home Services Booking — Book trusted pros near you</title>
+  <title>Home Services Dispatch System</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
   <div class="page-wrap">
     <header class="site-header">
       <div class="container inner">
-        <a class="logo" href="index.php">Home Services</a>
+        <a class="logo" href="index.php">Dispatch Home</a>
         <nav class="nav-links">
           <a href="index.php">Services</a>
           <a href="book.php">Book</a>
-          <a href="status.php">Booking status</a>
+          <a href="status.php">Track</a>
         </nav>
       </div>
     </header>
@@ -26,29 +27,29 @@ declare(strict_types=1);
     <main>
       <div class="container">
         <section class="hero">
-          <h1>Home Services Booking Platform</h1>
-          <p class="lead">Fast, reliable electricians, AC repair, and plumbing — book in minutes.</p>
+          <h1>Home Services Dispatch System</h1>
+          <p class="lead">Trusted electricians, AC repair, and plumbing — fast booking across your neighbourhood.</p>
         </section>
 
         <div class="services-grid">
           <article class="service-card">
             <div class="service-icon" aria-hidden="true">⚡</div>
             <h3>Electrician</h3>
-            <p>Wiring, switches, fans, MCB trips, and safe electrical fixes at your doorstep.</p>
+            <p>Wiring, MCB, fans, and safe electrical repairs at your door.</p>
             <a class="btn btn-primary btn-block" href="book.php?service=electrician">Book Now</a>
           </article>
 
           <article class="service-card">
             <div class="service-icon" aria-hidden="true">❄️</div>
             <h3>AC Repair</h3>
-            <p>Gas refill, cooling issues, servicing, and installation support for split &amp; window ACs.</p>
+            <p>Cooling issues, gas, servicing for split and window ACs.</p>
             <a class="btn btn-primary btn-block" href="book.php?service=ac_repair">Book Now</a>
           </article>
 
           <article class="service-card">
             <div class="service-icon" aria-hidden="true">🔧</div>
             <h3>Plumber</h3>
-            <p>Leaks, taps, drainage, motor, and bathroom fittings — quick response in your area.</p>
+            <p>Leaks, taps, drainage, and bathroom fittings.</p>
             <a class="btn btn-primary btn-block" href="book.php?service=plumber">Book Now</a>
           </article>
         </div>
@@ -57,7 +58,7 @@ declare(strict_types=1);
 
     <footer class="site-footer">
       <div class="container">
-        <p>&copy; <?php echo date('Y'); ?> Home Services Booking Platform</p>
+        <p>&copy; <?php echo date('Y'); ?> Home Services Dispatch System</p>
       </div>
     </footer>
   </div>

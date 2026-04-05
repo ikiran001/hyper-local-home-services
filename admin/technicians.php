@@ -4,12 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 
-const SERVICE_TYPES = [
-    'electrician' => 'Electrician',
-    'ac_repair'     => 'AC Repair',
-    'plumber'       => 'Plumber',
-];
-
+$services = service_options();
+$areas = area_options();
 $errors = [];
 $flash = '';
 
@@ -17,8 +13,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim((string) ($_POST['name'] ?? ''));
     $phone = preg_replace('/\D/', '', (string) ($_POST['phone'] ?? ''));
     $serviceType = (string) ($_POST['service_type'] ?? '');
-    $area = trim((string) ($_POST['area'] ?? ''));
-    $available = isset($_POST['is_available']) ? 1 : 0;
+    $area = (string) ($_POST['area'] ?? '');
+    $availability = (string) ($_POST['availability'] ?? 'available');
+    $isAvailable = $availability === 'available' ? 1 : 0;
 
     if (strlen($name) < 2) {
         $errors[] = 'Enter the technician name.';
@@ -26,31 +23,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (strlen($phone) !== 10) {
         $errors[] = 'Enter a valid 10-digit phone number.';
     }
-    if (!isset(SERVICE_TYPES[$serviceType])) {
+    if (!isset($services[$serviceType])) {
         $errors[] = 'Select a valid service type.';
     }
-    if (strlen($area) < 2) {
-        $errors[] = 'Enter the service area.';
+    if (!isset($areas[$area])) {
+        $errors[] = 'Select a valid area.';
     }
 
     if ($errors === []) {
         $conn = db();
         $sql = 'INSERT INTO technicians (name, phone, service_type, area, is_available) VALUES (?, ?, ?, ?, ?)';
         $stmt = $conn->prepare($sql);
-        $stmt->execute([$name, $phone, $serviceType, $area, $available]);
+        $stmt->bind_param('ssssi', $name, $phone, $serviceType, $area, $isAvailable);
+        $stmt->execute();
+        $stmt->close();
         header('Location: technicians.php?added=1', true, 302);
         exit;
     }
 }
 
 if (isset($_GET['added'])) {
-    $flash = 'Technician added successfully.';
+    $flash = 'Technician added.';
 }
 
 $conn = db();
-$list = $conn
-    ->query('SELECT id, name, phone, service_type, area, is_available, created_at FROM technicians ORDER BY created_at DESC')
-    ->fetchAll(PDO::FETCH_ASSOC);
+$list = [];
+$res = $conn->query('SELECT id, name, phone, service_type, area, is_available, created_at FROM technicians ORDER BY created_at DESC');
+while ($row = $res->fetch_assoc()) {
+    $list[] = $row;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,20 +108,26 @@ $list = $conn
               <label for="service_type">Service type</label>
               <select id="service_type" name="service_type" required>
                 <option value="">— Select —</option>
-                <?php foreach (SERVICE_TYPES as $val => $label): ?>
+                <?php foreach ($services as $val => $label): ?>
                   <option value="<?php echo e($val); ?>" <?php echo (isset($_POST['service_type']) && $_POST['service_type'] === $val) ? 'selected' : ''; ?>><?php echo e($label); ?></option>
                 <?php endforeach; ?>
               </select>
             </div>
             <div class="form-group">
               <label for="area">Area</label>
-              <input type="text" id="area" name="area" required maxlength="255" placeholder="e.g. Koramangala, Bangalore" value="<?php echo e($_POST['area'] ?? ''); ?>">
+              <select id="area" name="area" required>
+                <option value="">— Select —</option>
+                <?php foreach ($areas as $val => $label): ?>
+                  <option value="<?php echo e($val); ?>" <?php echo (isset($_POST['area']) && $_POST['area'] === $val) ? 'selected' : ''; ?>><?php echo e($label); ?></option>
+                <?php endforeach; ?>
+              </select>
             </div>
             <div class="form-group">
-              <label>
-                <input type="checkbox" name="is_available" value="1" checked>
-                Available for new assignments
-              </label>
+              <label for="availability">Availability</label>
+              <select id="availability" name="availability" required>
+                <option value="available" <?php echo (!isset($_POST['availability']) || $_POST['availability'] === 'available') ? 'selected' : ''; ?>>Available</option>
+                <option value="busy" <?php echo (isset($_POST['availability']) && $_POST['availability'] === 'busy') ? 'selected' : ''; ?>>Busy</option>
+              </select>
             </div>
             <button type="submit" class="btn btn-primary">Add technician</button>
           </form>
@@ -138,7 +145,7 @@ $list = $conn
                   <th>Phone</th>
                   <th>Service</th>
                   <th>Area</th>
-                  <th>Available</th>
+                  <th>Availability</th>
                 </tr>
               </thead>
               <tbody>
@@ -146,9 +153,9 @@ $list = $conn
                   <tr>
                     <td><?php echo e($t['name']); ?></td>
                     <td><?php echo e($t['phone']); ?></td>
-                    <td><?php echo e(SERVICE_TYPES[$t['service_type']] ?? $t['service_type']); ?></td>
-                    <td><?php echo e($t['area']); ?></td>
-                    <td><?php echo (int) $t['is_available'] === 1 ? 'Yes' : 'No'; ?></td>
+                    <td><?php echo e($services[$t['service_type']] ?? $t['service_type']); ?></td>
+                    <td><?php echo e(label_area($t['area'])); ?></td>
+                    <td><?php echo (int) $t['is_available'] === 1 ? 'Available' : 'Busy'; ?></td>
                   </tr>
                 <?php endforeach; ?>
               </tbody>

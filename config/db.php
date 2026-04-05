@@ -1,156 +1,44 @@
 <?php
 /**
- * Database — PDO with prepared statements.
- * Tries MySQL first; if unavailable, uses SQLite file (zero-setup local run).
+ * MySQL connection (mysqli) — XAMPP / production.
+ * Prepared statements only; no raw user input in SQL.
  */
-
 declare(strict_types=1);
 
-define('DB_HOST', 'localhost');
+require_once __DIR__ . '/constants.php';
+
+/**
+ * Use 127.0.0.1 (TCP), not "localhost", on macOS/Homebrew PHP — otherwise mysqli
+ * looks for a Unix socket file and you get: mysqli_sql_exception: No such file or directory.
+ * XAMPP/WAMP: 127.0.0.1 works the same as localhost for TCP.
+ */
+define('DB_HOST', getenv('DB_HOST') !== false && getenv('DB_HOST') !== '' ? getenv('DB_HOST') : '127.0.0.1');
 define('DB_USER', 'root');
 define('DB_PASS', '');
-define('DB_NAME', 'home_services');
-
-/** 'auto' = try MySQL, then SQLite | 'mysql' | 'sqlite' */
-define('DB_DRIVER', getenv('DB_DRIVER') ?: 'auto');
+define('DB_NAME', 'home_services_dispatch');
 
 define('ADMIN_USERNAME', 'admin');
 define('ADMIN_PASSWORD', 'admin123');
 
-define('WHATSAPP_BUSINESS_NUMBER', '9876543210');
-
-/** @var 'mysql'|'sqlite' */
-$GLOBALS['_db_kind'] = 'mysql';
+/** Business WhatsApp (India): country code + 10 digits, no + or spaces — customer redirect after booking */
+define('WHATSAPP_BUSINESS_NUMBER', '917032174014');
 
 /**
- * Shared PDO connection (singleton per request).
+ * @return mysqli
  */
-function db(): PDO
+function db(): mysqli
 {
-    static $pdo = null;
-    if ($pdo instanceof PDO) {
-        return $pdo;
+    static $conn = null;
+    if ($conn instanceof mysqli) {
+        return $conn;
     }
 
-    $driver = DB_DRIVER;
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-    if ($driver === 'auto') {
-        try {
-            $pdo = create_mysql_pdo();
-            $GLOBALS['_db_kind'] = 'mysql';
-            return $pdo;
-        } catch (Throwable $e) {
-            $pdo = create_sqlite_pdo();
-            $GLOBALS['_db_kind'] = 'sqlite';
-            return $pdo;
-        }
-    }
+    $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+    $conn->set_charset('utf8mb4');
 
-    if ($driver === 'mysql') {
-        $pdo = create_mysql_pdo();
-        $GLOBALS['_db_kind'] = 'mysql';
-        return $pdo;
-    }
-
-    $pdo = create_sqlite_pdo();
-    $GLOBALS['_db_kind'] = 'sqlite';
-    return $pdo;
-}
-
-function db_is_sqlite(): bool
-{
-    db(); // ensure init
-    return ($GLOBALS['_db_kind'] ?? 'mysql') === 'sqlite';
-}
-
-function create_mysql_pdo(): PDO
-{
-    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    return $pdo;
-}
-
-function create_sqlite_pdo(): PDO
-{
-    $dir = dirname(__DIR__) . '/database';
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
-    }
-    $path = $dir . '/app.sqlite';
-    $pdo = new PDO('sqlite:' . $path, null, null, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    $pdo->exec('PRAGMA foreign_keys = ON');
-    ensure_sqlite_schema($pdo);
-    return $pdo;
-}
-
-/**
- * Creates tables + seed rows when using SQLite (first run).
- */
-function ensure_sqlite_schema(PDO $pdo): void
-{
-    $pdo->exec(<<<'SQL'
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-SQL);
-
-    $pdo->exec(<<<'SQL'
-CREATE TABLE IF NOT EXISTS technicians (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  service_type TEXT NOT NULL,
-  area TEXT NOT NULL,
-  is_available INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-SQL);
-
-    $pdo->exec(<<<'SQL'
-CREATE TABLE IF NOT EXISTS bookings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  address TEXT NOT NULL,
-  service TEXT NOT NULL,
-  issue TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending',
-  technician_id INTEGER,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (technician_id) REFERENCES technicians(id) ON DELETE SET NULL ON UPDATE CASCADE,
-  CHECK (status IN ('pending', 'assigned', 'completed'))
-);
-SQL);
-
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_bookings_phone ON bookings(phone)');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_bookings_technician ON bookings(technician_id)');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_technicians_service ON technicians(service_type)');
-    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_technicians_phone ON technicians(phone)');
-
-    $n = (int) $pdo->query('SELECT COUNT(*) FROM technicians')->fetchColumn();
-    if ($n === 0) {
-        $ins = $pdo->prepare(
-            'INSERT INTO technicians (name, phone, service_type, area, is_available) VALUES (?, ?, ?, ?, ?)'
-        );
-        $rows = [
-            ['Ravi Kumar', '9876543210', 'electrician', 'Indiranagar, Bangalore', 1],
-            ['Suresh Nair', '9876543211', 'ac_repair', 'Koramangala, Bangalore', 1],
-            ['Amit Patil', '9876543212', 'plumber', 'Whitefield, Bangalore', 1],
-        ];
-        foreach ($rows as $r) {
-            $ins->execute([$r[0], $r[1], $r[2], $r[3], $r[4]]);
-        }
-    }
+    return $conn;
 }
 
 function e(?string $s): string

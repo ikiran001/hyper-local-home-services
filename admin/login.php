@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin login — Home Services</title>
+  <title>Admin — Dispatch</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main>
       <div class="container login-box">
         <h1 style="text-align:center;">Admin login</h1>
-        <p class="lead" style="text-align:center;">Home Services Booking Platform</p>
+        <p class="lead" style="text-align:center;">Home Services Dispatch System</p>
 
         <div class="card-panel">
           <?php if ($error !== ''): ?>
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <button type="submit" class="btn btn-primary btn-block">Sign in</button>
           </form>
-          <p class="muted" style="margin-top:1rem;text-align:center;">MVP: credentials are set in <code>config/db.php</code></p>
+          <p class="muted" style="margin-top:1rem;text-align:center;">Credentials in <code>config/db.php</code></p>
         </div>
       </div>
     </main>

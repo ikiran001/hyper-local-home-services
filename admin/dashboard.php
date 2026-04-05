@@ -6,16 +6,21 @@ require_once __DIR__ . '/includes/auth.php';
 
 $conn = db();
 
-$total = (int) $conn->query('SELECT COUNT(*) FROM bookings')->fetchColumn();
-$pending = (int) $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'pending'")->fetchColumn();
-$completed = (int) $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'completed'")->fetchColumn();
+$total = (int) $conn->query('SELECT COUNT(*) AS c FROM bookings')->fetch_assoc()['c'];
+$pending = (int) $conn->query("SELECT COUNT(*) AS c FROM bookings WHERE status = 'pending'")->fetch_assoc()['c'];
+$assigned = (int) $conn->query("SELECT COUNT(*) AS c FROM bookings WHERE status = 'assigned'")->fetch_assoc()['c'];
+$completed = (int) $conn->query("SELECT COUNT(*) AS c FROM bookings WHERE status = 'completed'")->fetch_assoc()['c'];
+
+$qEarn = "SELECT COALESCE(SUM(price), 0) AS e FROM bookings
+          WHERE status = 'completed' AND completed_at IS NOT NULL AND DATE(completed_at) = CURDATE()";
+$earningsToday = (float) $conn->query($qEarn)->fetch_assoc()['e'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin dashboard — Home Services</title>
+  <title>Dashboard — Admin</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -38,7 +43,7 @@ $completed = (int) $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'c
           <h1>Dashboard</h1>
         </div>
 
-        <div class="stats-grid">
+        <div class="stats-grid stats-grid-5">
           <div class="stat-card">
             <div class="num"><?php echo $total; ?></div>
             <div class="label">Total bookings</div>
@@ -48,8 +53,16 @@ $completed = (int) $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'c
             <div class="label">Pending</div>
           </div>
           <div class="stat-card">
+            <div class="num"><?php echo $assigned; ?></div>
+            <div class="label">Assigned</div>
+          </div>
+          <div class="stat-card">
             <div class="num"><?php echo $completed; ?></div>
             <div class="label">Completed</div>
+          </div>
+          <div class="stat-card stat-earnings">
+            <div class="num">₹<?php echo number_format($earningsToday, 2); ?></div>
+            <div class="label">Today’s earnings</div>
           </div>
         </div>
 
@@ -59,7 +72,7 @@ $completed = (int) $conn->query("SELECT COUNT(*) FROM bookings WHERE status = 'c
 
     <footer class="site-footer">
       <div class="container">
-        <p>Admin panel — Home Services Booking Platform</p>
+        <p>Home Services Dispatch System — Admin</p>
       </div>
     </footer>
   </div>

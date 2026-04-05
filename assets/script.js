@@ -20,11 +20,15 @@
       var phone = bookForm.querySelector('[name="phone"]');
       var address = bookForm.querySelector('[name="address"]');
       var issue = bookForm.querySelector('[name="issue"]');
+      var area = bookForm.querySelector('[name="area"]');
+      var priority = bookForm.querySelector('[name="priority"]');
 
       var errs = [];
       if (!name || name.value.trim().length < 2) errs.push('Enter a valid name.');
       if (!phone || !validateIndianPhone(phone.value)) errs.push('Enter a valid 10-digit phone number.');
       if (!address || address.value.trim().length < 5) errs.push('Enter a complete address.');
+      if (!area || !area.value) errs.push('Select an area.');
+      if (!priority || !priority.value) errs.push('Select priority.');
       if (!issue || issue.value.trim().length < 10) errs.push('Describe the problem (at least 10 characters).');
 
       if (errs.length) {

@@ -4,26 +4,35 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config/db.php';
 require_once __DIR__ . '/includes/auth.php';
 
-const SERVICE_LABELS = [
-    'electrician' => 'Electrician',
-    'ac_repair'     => 'AC Repair',
-    'plumber'       => 'Plumber',
-];
-
 $techId = (int) $_SESSION['technician_id'];
 $techName = (string) ($_SESSION['technician_name'] ?? 'Technician');
 $flash = '';
 
-// Mark job completed
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'complete') {
     $bid = (int) ($_POST['booking_id'] ?? 0);
     if ($bid > 0) {
         $conn = db();
-        $sql = 'UPDATE bookings SET status = "completed" WHERE id = ? AND technician_id = ? AND status = "assigned"';
-        $stmt = $conn->prepare($sql);
-        $stmt->execute([$bid, $techId]);
-        if ($stmt->rowCount() > 0) {
-            $flash = 'Job marked as completed.';
+        $conn->begin_transaction();
+        try {
+            $st = $conn->prepare('UPDATE bookings SET status = "completed", completed_at = NOW() WHERE id = ? AND technician_id = ? AND status = "assigned"');
+            $st->bind_param('ii', $bid, $techId);
+            $st->execute();
+            $affected = $st->affected_rows;
+            $st->close();
+
+            if ($affected > 0) {
+                $f = $conn->prepare('UPDATE technicians SET is_available = 1 WHERE id = ?');
+                $f->bind_param('i', $techId);
+                $f->execute();
+                $f->close();
+                $conn->commit();
+                $flash = 'Job marked completed. You are available for new jobs.';
+            } else {
+                $conn->rollback();
+            }
+        } catch (Throwable $e) {
+            $conn->rollback();
+            $flash = 'Could not complete job.';
         }
     }
     header('Location: dashboard.php?msg=' . rawurlencode($flash), true, 302);
@@ -35,25 +44,26 @@ if (isset($_GET['msg']) && is_string($_GET['msg'])) {
 }
 
 $conn = db();
-$sql = 'SELECT id, name, phone, address, service, issue, status, created_at
+$sql = 'SELECT id, name, phone, address, service, issue, priority, area, created_at
         FROM bookings
-        WHERE technician_id = ?
-        ORDER BY
-          CASE WHEN status = "assigned" THEN 0 ELSE 1 END,
-          created_at DESC';
+        WHERE technician_id = ? AND status = "assigned"
+        ORDER BY CASE priority WHEN "urgent" THEN 0 ELSE 1 END, created_at DESC';
 $stmt = $conn->prepare($sql);
-$stmt->execute([$techId]);
-$jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$active = array_filter($jobs, static fn ($j) => $j['status'] === 'assigned');
-$done = array_filter($jobs, static fn ($j) => $j['status'] === 'completed');
+$stmt->bind_param('i', $techId);
+$stmt->execute();
+$res = $stmt->get_result();
+$jobs = [];
+while ($row = $res->fetch_assoc()) {
+    $jobs[] = $row;
+}
+$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Technician dashboard — Home Services</title>
+  <title>Technician — Dispatch</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -71,23 +81,33 @@ $done = array_filter($jobs, static fn ($j) => $j['status'] === 'completed');
     <main>
       <div class="container">
         <div class="page-header-row">
-          <h1>Your jobs</h1>
+          <h1>Assigned jobs</h1>
         </div>
 
         <?php if ($flash !== ''): ?>
           <div class="alert alert-success" role="status"><?php echo e($flash); ?></div>
         <?php endif; ?>
 
-        <h2 class="section-title">Assigned (active)</h2>
-        <?php if ($active === []): ?>
-          <p class="empty-state">No active assignments right now.</p>
+        <?php if ($jobs === []): ?>
+          <p class="empty-state">No active assignments.</p>
         <?php else: ?>
           <div class="job-list">
-            <?php foreach ($active as $j): ?>
-              <article class="job-card">
+            <?php foreach ($jobs as $j): ?>
+              <?php $urgent = $j['priority'] === 'urgent'; ?>
+              <article class="job-card <?php echo $urgent ? 'job-urgent' : ''; ?>">
                 <dl>
                   <dt>Service</dt>
-                  <dd><?php echo e(SERVICE_LABELS[$j['service']] ?? $j['service']); ?></dd>
+                  <dd><?php echo e(label_service($j['service'])); ?></dd>
+                  <dt>Area</dt>
+                  <dd><?php echo e(label_area($j['area'])); ?></dd>
+                  <dt>Priority</dt>
+                  <dd>
+                    <?php if ($urgent): ?>
+                      <span class="badge badge-urgent">Urgent</span>
+                    <?php else: ?>
+                      <span class="badge">Normal</span>
+                    <?php endif; ?>
+                  </dd>
                   <dt>Customer</dt>
                   <dd><?php echo e($j['name']); ?></dd>
                   <dt>Phone</dt>
@@ -108,36 +128,12 @@ $done = array_filter($jobs, static fn ($j) => $j['status'] === 'completed');
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
-
-        <h2 class="section-title">Completed</h2>
-        <?php if ($done === []): ?>
-          <p class="empty-state">No completed jobs yet.</p>
-        <?php else: ?>
-          <div class="job-list">
-            <?php foreach ($done as $j): ?>
-              <article class="job-card">
-                <dl>
-                  <dt>Service</dt>
-                  <dd><?php echo e(SERVICE_LABELS[$j['service']] ?? $j['service']); ?></dd>
-                  <dt>Customer</dt>
-                  <dd><?php echo e($j['name']); ?></dd>
-                  <dt>Phone</dt>
-                  <dd><?php echo e($j['phone']); ?></dd>
-                  <dt>Address</dt>
-                  <dd><?php echo nl2br(e($j['address'])); ?></dd>
-                  <dt>Issue</dt>
-                  <dd><?php echo nl2br(e($j['issue'])); ?></dd>
-                </dl>
-              </article>
-            <?php endforeach; ?>
-          </div>
-        <?php endif; ?>
       </div>
     </main>
 
     <footer class="site-footer">
       <div class="container">
-        <p>Technician portal — Home Services</p>
+        <p>Technician — Home Services Dispatch System</p>
       </div>
     </footer>
   </div>
